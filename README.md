@@ -27,6 +27,7 @@ uses best practices for testing in general.
  - Flexible
  - Remembers state about your current test
    - Ability to verify that "created" object exists
+ - Easily mock multiple API calls
 
 ### Cons
 

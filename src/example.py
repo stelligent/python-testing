@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 import boto3
+import botocore.exceptions
 
 logging.basicConfig(
     level=logging.DEBUG if os.environ.get('DEBUG') else logging.INFO,
@@ -33,7 +34,17 @@ def get_certificate(thing: str) -> str:
             thingName=thing,
         )
         principals = response['principals']
-    except Exception as err: # pylint: disable=broad-except
+    except botocore.exceptions.ClientError as err:
         logging.warning('Error calling iot_client.list_thing_principals %s', err)
+        if err.response['Error']['Code'] != 'ResourceNotFoundException':
+            raise err
 
-    return principals[0]
+    certs = list(filter(lambda principal: ':cert/' in principal, principals))
+    if certs:
+        return certs[0]
+
+    certs = iot_client.create_keys_and_certificate(
+        setAsActive=True,
+    )
+
+    return certs['certificateArn']

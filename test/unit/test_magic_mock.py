@@ -2,6 +2,7 @@
 Test our example file using magic mock
 '''
 from unittest import mock
+from botocore.exceptions import ClientError
 from src.example import get_certificate
 
 class MockResponse:
@@ -26,19 +27,91 @@ class MockResponse:
         '''
         return repr([self, self.body])
 
+def boto_client_error(code: str, method: str, message: str = r'¯\_(ツ)_/¯'):
+    '''
+    Create a boto3 ClientError
+    '''
+    return ClientError(
+        {
+            'Error': {
+                'Code': code,
+                'Message': message,
+            },
+        },
+        method,
+    )
 
 @mock.patch('botocore.client.BaseClient._make_request')
-def test_get_certificate_exists(mock_api):
+def test_get_thing_and_certificate_exists(mock_api):
     '''
     Test getting a thing with an existing certificate
     '''
-    response = MockResponse(200, {
-        'principals': [
-            'abc123',
-        ],
-    })
-
-    mock_api.return_value = response
+    mock_api.return_value = MockResponse(
+        200,
+        {
+            'principals': [
+                'arn:aws:iot:region:account_id:cert/foobar',
+            ],
+        },
+    )
 
     cert = get_certificate('my-test-core')
-    assert cert == 'abc123'
+
+    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
+
+@mock.patch('botocore.client.BaseClient._make_request')
+def test_get_thing_exists_certificate_creates(mock_api):
+    '''
+    Assert that a new certificate is generated if the thing exists
+    but no certificates are attached
+    '''
+    mock_api.side_effect = [
+        MockResponse(
+            200,
+            {
+                'principals': [],
+            }
+        ),
+        MockResponse(
+            200,
+            {
+                'certificateArn': 'arn:aws:iot:region:account_id:cert/foobar',
+                'certificateId': 'barbaz',
+                'certificatePem': 'foo',
+                'keyPair': {
+                    'PublicKey': 'bar',
+                    'PrivateKey': 'baz',
+                },
+            },
+        ),
+    ]
+    cert = get_certificate('my-test-core')
+
+    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
+
+@mock.patch('botocore.client.BaseClient._make_request')
+def test_get_certificate_no_thing_cert_creates(mock_api):
+    '''
+    Test that a certificate is created if no thing exists and returns the cert
+    '''
+    mock_api.side_effect = [
+        boto_client_error(
+            'ResourceNotFoundException',
+            'list_thing_principals'
+        ),
+        MockResponse(
+            200,
+            {
+                'certificateArn': 'arn:aws:iot:region:account_id:cert/foobar',
+                'certificateId': 'barbaz',
+                'certificatePem': 'foo',
+                'keyPair': {
+                    'PublicKey': 'bar',
+                    'PrivateKey': 'baz',
+                },
+            },
+        ),
+    ]
+    cert = get_certificate('my-test-core')
+
+    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
