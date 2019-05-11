@@ -3,6 +3,7 @@ Example file with boto3 calls that we will write tests for
 '''
 import os
 import sys
+from typing import Optional
 import logging
 import boto3
 import botocore.exceptions
@@ -15,19 +16,18 @@ logging.basicConfig(
     ],
 )
 
-def get_certificate(thing: str) -> str:
+def get_certificate(thing: str, client: Optional[boto3.client] = None) -> str:
     '''
-    Get the certificate ID for a thing
-    If the certificate is not attached, or the thing does not
-    exist, then a new cert is created and returned so it
-    can be attached later.
+    Get a certificate AWS IoT certificate ID
 
-    Parameter:
+    Parameters:
         thing (str): The IoT Thing Name
+        client (boto3.client): A boto3 IoT client
 
     Returns: str
     '''
-    iot_client = boto3.client('iot')
+    iot_client = client or boto3.client('iot')
+
     principals = []
     try:
         response = iot_client.list_thing_principals(
@@ -41,10 +41,10 @@ def get_certificate(thing: str) -> str:
 
     certs = list(filter(lambda principal: ':cert/' in principal, principals))
     if certs:
-        return certs[0]
+        return certs
 
     certs = iot_client.create_keys_and_certificate(
         setAsActive=True,
     )
 
-    return certs['certificateArn']
+    return [certs['certificateArn']]

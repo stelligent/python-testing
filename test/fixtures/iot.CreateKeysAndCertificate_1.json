@@ -1,0 +1,27 @@
+{
+    "status_code": 200,
+    "data": {
+        "ResponseMetadata": {
+            "RequestId": "00000000-0000-0000-0000-000000000000",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+                "date": "Fri, 10 May 2019 22:02:50 GMT",
+                "content-type": "application/json",
+                "content-length": "3674",
+                "connection": "keep-alive",
+                "x-amzn-requestid": "00000000-0000-0000-0000-000000000000",
+                "access-control-allow-origin": "*",
+                "x-amz-apigw-id": "000000000000000=",
+                "x-amzn-trace-id": "Root=1-00000000-000000000000000000000000"
+            },
+            "RetryAttempts": 0
+        },
+        "certificateArn": "arn:aws:iot:region:account_id:cert/0000000000000000000000000000000000000000000000000000000000000000",
+        "certificateId": "0000000000000000000000000000000000000000000000000000000000000000",
+        "certificatePem": "-----BEGIN CERTIFICATE-----\nREDACTED\n-----END CERTIFICATE-----\n",
+        "keyPair": {
+            "PublicKey": "-----BEGIN PUBLIC KEY-----\nnREDACTED\n-----END PUBLIC KEY-----\n",
+            "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nnREDACTED\n-----END RSA PRIVATE KEY-----\n"
+        }
+    }
+}

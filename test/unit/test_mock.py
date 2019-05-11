@@ -1,7 +1,9 @@
 '''
-Test our example file using magic mock
+Test our example file using magic mock.
+Monkeypatches the boto3 request object.
 '''
 from unittest import mock
+import pytest
 from botocore.exceptions import ClientError
 from src.example import get_certificate
 
@@ -51,13 +53,15 @@ def test_get_thing_and_certificate_exists(mock_api):
         {
             'principals': [
                 'arn:aws:iot:region:account_id:cert/foobar',
+                'arn:aws:iot:region:account_id:cert/baz',
             ],
         },
     )
-
-    cert = get_certificate('my-test-core')
-
-    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
+    cert = get_certificate(thing='my-test-core')
+    assert cert == [
+        'arn:aws:iot:region:account_id:cert/foobar',
+        'arn:aws:iot:region:account_id:cert/baz',
+    ]
 
 @mock.patch('botocore.client.BaseClient._make_request')
 def test_get_thing_exists_certificate_creates(mock_api):
@@ -85,9 +89,8 @@ def test_get_thing_exists_certificate_creates(mock_api):
             },
         ),
     ]
-    cert = get_certificate('my-test-core')
-
-    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
+    cert = get_certificate(thing='my-test-core')
+    assert cert == ['arn:aws:iot:region:account_id:cert/foobar']
 
 @mock.patch('botocore.client.BaseClient._make_request')
 def test_get_certificate_no_thing_cert_creates(mock_api):
@@ -112,6 +115,23 @@ def test_get_certificate_no_thing_cert_creates(mock_api):
             },
         ),
     ]
-    cert = get_certificate('my-test-core')
+    cert = get_certificate(thing='my-test-core')
+    assert cert == ['arn:aws:iot:region:account_id:cert/foobar']
 
-    assert cert == 'arn:aws:iot:region:account_id:cert/foobar'
+@mock.patch('botocore.client.BaseClient._make_request')
+def test_get_certificate_thing_exception(mock_api):
+    '''
+    Assert that an exception is thrown if the request fails and
+    is not a ResourceNotFoundExeption
+    '''
+    mock_api.side_effect = ClientError(
+        {
+            'Error':{
+                'Code': 'InvalidRequestException',
+                'Message': 'something went wrong',
+            }
+        },
+        'list_thing_principals'
+    )
+    with pytest.raises(ClientError):
+        get_certificate(thing='my-test-core')

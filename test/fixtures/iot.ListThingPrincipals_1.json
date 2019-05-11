@@ -1,0 +1,24 @@
+{
+    "status_code": 404,
+    "data": {
+        "Error": {
+            "Message": "Failed to list principals for thing my-test-core because the thing does not exist in your account",
+            "Code": "ResourceNotFoundException"
+        },
+        "ResponseMetadata": {
+            "RequestId": "00000000-0000-0000-0000-000000000000",
+            "HTTPStatusCode": 404,
+            "HTTPHeaders": {
+                "date": "Fri, 10 May 2019 22:02:50 GMT",
+                "content-type": "application/json",
+                "content-length": "112",
+                "connection": "keep-alive",
+                "x-amzn-requestid": "00000000-0000-0000-0000-000000000000",
+                "x-amzn-errortype": "ResourceNotFoundException",
+                "x-amz-apigw-id": "000000000000000=",
+                "x-amzn-trace-id": "Root=1-00000000-000000000000000000000000"
+            },
+            "RetryAttempts": 0
+        }
+    }
+}
