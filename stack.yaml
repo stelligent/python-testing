@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Example - Python testing pipeline. Run automated
+  tests against your python applications
+
+Resources:
+
+  CodePipelineTrustRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Sid: '1'
+            Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  CodePipelineRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CloudFormationPipeline
+      PolicyDocument:
+        Statement:
+        -
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetBucketVersioning
+          Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - !ImportValue tools-iiot-pipelines:BucketArtifactStore
+                - /*
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - !ImportValue tools-iiot-pipelines:BucketArtifactStore
+          Effect: Allow
+        -
+          Action:
+            - codebuild:StartBuild
+            - codebuild:BatchGetBuilds
+          Resource:
+            - !GetAtt CodeBuild.Arn
+          Effect: Allow
+        -
+          Action:
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncryptFrom
+            - kms:ReEncryptTo
+            - kms:GenerateDataKey
+            - kms:GenerateDataKeyWithoutPlaintext
+            - kms:DescribeKey
+          Resource:
+            - !ImportValue tools-iiot-pipelines:KMSKey
+            - !ImportValue tools-iiot-ghe:KmsKey
+          Effect: Allow
+        -
+          Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource:
+            - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codepipeline/*
+      Roles:
+        - Ref: CodePipelineTrustRole
+
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: CodePipelineRolePolicies
+    Properties:
+      Name: !Sub ${AWS::StackName}-Pipeline
+      RoleArn: !GetAtt CodePipelineTrustRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !ImportValue tools-iiot-pipelines:BucketArtifactStore
+        EncryptionKey:
+          Id: !ImportValue tools-iiot-pipelines:KMSKey
+          Type: KMS
+      Stages:
+        -
+          Name: Source
+          Actions:
+          - InputArtifacts: []
+            Name: Source
+            ActionTypeId:
+              Category: Source
+              Owner: AWS
+              Version: '1'
+              Provider: S3
+            OutputArtifacts:
+              - Name: SourceApp
+            Configuration:
+              S3Bucket: !ImportValue tools-iiot-ghe:OutputBucket
+              S3ObjectKey: !Ref SourceKey
+            RunOrder: 1
+        -
+          Name: Test
+          Actions:
+            - Name: CodeBuild
+              InputArtifacts:
+                - Name: SourceApp
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              OutputArtifacts:
+                - Name: BuiltApp
+              Configuration:
+                ProjectName: !Ref CodeBuild
+  RoleCodeBuild:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        -
+          PolicyName: !Sub ${AWS::StackName}-CodeBuild-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:DeleteObject
+                Resource:
+                  - Fn::Join:
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !ImportValue tools-iiot-pipelines:BucketArtifactStore
+                      - /*
+              -
+                Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+              -
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncryptFrom
+                  - kms:ReEncryptTo
+                  - kms:GenerateDataKey
+                  - kms:GenerateDataKeyWithoutPlaintext
+                  - kms:DescribeKey
+                Resource:
+                  - !ImportValue tools-iiot-pipelines:KMSKey
+                Effect: Allow
+
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub ${AWS::StackName}-CodeBuild
+      ServiceRole: !GetAtt RoleCodeBuild.Arn
+      EncryptionKey: !ImportValue tools-iiot-pipelines:KMSKey
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yaml
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/docker:18.09.0
+        Type: LINUX_CONTAINER
+      Artifacts:
+        Name:
+          Fn::Join:
+            - '-'
+            - - !ImportValue tools-iiot-pipelines:BucketArtifactStore
+              - Built
+        Type: CODEPIPELINE

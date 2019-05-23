@@ -48,3 +48,32 @@ def get_certificate(thing: str, client: Optional[boto3.client] = None) -> str:
     )
 
     return [certs['certificateArn']]
+
+class MyS3Class:
+    '''
+    MyS3Class controls interactions with S3 through the boto3 client
+    '''
+    #
+    # boto3 S3 client
+    #
+    s3_client: boto3.client
+    #
+    # bucket used on S3 operations
+    #
+    bucket: str
+
+    def __init__(self, bucket: str, client: Optional[boto3.client] = None):
+        self.s3_client = client or boto3.client('s3')
+        self.bucket = bucket
+
+    def upload_file(self, data: bytearray, key: str) -> None:
+        '''
+        Upload a file to S3
+        '''
+        return self.s3_client.upload_fileobj(data, self.bucket, key)
+
+    def get_file(self, bucket: str, key: str, client: Optional[boto3.client] = None) -> dict:
+        '''
+        Get a file from S3
+        '''
+        raise Exception('no implimented')

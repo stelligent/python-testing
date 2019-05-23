@@ -4,8 +4,9 @@ Monkeypatches the boto3 request object.
 '''
 from unittest import mock
 import pytest
+from io import StringIO
 from botocore.exceptions import ClientError
-from src.example import get_certificate
+from src.example import get_certificate, MyS3Class
 
 class MockResponse:
     '''
@@ -57,6 +58,8 @@ def test_get_thing_and_certificate_exists(mock_api):
             ],
         },
     )
+    # to use DI instead of monkeypatch you can pass in mock_api as the client property
+    # and omit the @mock.patch decorator on this test method
     cert = get_certificate(thing='my-test-core')
     assert cert == [
         'arn:aws:iot:region:account_id:cert/foobar',
@@ -135,3 +138,19 @@ def test_get_certificate_thing_exception(mock_api):
     )
     with pytest.raises(ClientError):
         get_certificate(thing='my-test-core')
+
+
+@mock.patch('botocore.client.BaseClient._make_request')
+def test_s3_upload_file(mock_api):
+    '''
+    Test uploading a file to S3
+    '''
+    s3_class = MyS3Class(bucket='foobar')
+    mock_api.return_value = MockResponse(
+        200,
+        {},
+    )
+    with StringIO() as output:
+        output.write('some fake data\n')
+        assert s3_class.upload_file(data=output, key='baz') is None
+
